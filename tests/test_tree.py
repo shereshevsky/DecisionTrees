@@ -69,14 +69,26 @@ from DecisionTree import DecisionTree
 #
 # print(dt.mse())
 
-from sklearn.datasets import load_boston
+### cricket
 
+y = np.array([  1,    0,      0,      1,      0,      1,      1,      0,      1])
+X = np.array([
+                [1,9],[1,8], [0,8],   [1,8],  [0,9],  [1,9],  [1,8],  [0,9],  [1,8]])
+
+dt = DecisionTree(2, 1)
+dt.fit(X, y)
+print(dt)
+
+###  Boston
+from sklearn.datasets import load_boston
+from sklearn.preprocessing.data import normalize
 boston = load_boston()
 boston_y = boston.target
 boston_X = boston.data
 
-dt = DecisionTree(2, 10)
-dt.fit(boston_X, boston_y)
-
+dt = DecisionTree(5, 10)
+dt.fit(normalize(boston_X,  axis=0), boston_y)
+print(dt)
+print(dt.feature_importance)
 print(dt.mse())
 

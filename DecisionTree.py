@@ -1,6 +1,6 @@
 import json
 import numpy as np
-
+from collections import defaultdict
 from split_functions import variance_split
 
 
@@ -18,40 +18,43 @@ class NpEncoder(json.JSONEncoder):
 
 class DecisionTree:
     def __init__(self, min_leaf, max_depth=3):
-        self.tree = None
         self.min_leaf = min_leaf
         self.max_depth = max_depth
+        self.feature_importance = defaultdict(int)
+        self.tree = None
+        self.train_x = None
+        self.train_y = None
+        self.feature_names = None
 
     def __repr__(self):
         return json.dumps(self.tree, cls=NpEncoder)
 
-    def learn_recursive(self, p_x, p_y, feature_names, level=0):
+    def learn_recursive(self, p_x, p_y, level=0):
         if (
                 np.var(p_x, axis=0).sum() == 0
                 or p_y.size <= self.min_leaf
                 or np.var(p_y) == 0
                 or level >= self.max_depth
         ):
-            return {"label": np.mean(p_y)}
+            return {"label": np.mean(p_y), "cnt": p_y.size}
 
-        for (split_value, best_var_reduction), best_feature_index in sorted(
-                [(variance_split(p_x[:, i], p_y), i) for i in range(p_x.shape[1])],
-                key=lambda _x: _x[0][1],
-                reverse=True):
+        # generate list of best variance reduction for each feature and find the best feature and position to split by
+        (split_value, best_var_reduction), best_feature_index = sorted(
+            [(variance_split(p_x[:, i], p_y, self.min_leaf), i) for i in range(p_x.shape[1])],
+            key=lambda _x: _x[0][1],
+            reverse=True)[0]
 
-            if not best_var_reduction:
-                return {"label": np.mean(p_y)}
+        # no good variance reduction options found -> return average
+        if not best_var_reduction:
+            return {"label": np.mean(p_y), "cnt": p_y.size}
 
-            l_mask = p_x[:, best_feature_index] < split_value
-            if len(p_x[l_mask]) < self.min_leaf or len(p_x[~l_mask]) < self.min_leaf:
-                continue
+        l_mask = p_x[:, best_feature_index] < split_value
 
-        curr_feature = feature_names[best_feature_index]
-        del feature_names[best_feature_index]
-        p_x = np.delete(p_x, best_feature_index, 1)
+        curr_feature = self.feature_names[best_feature_index]
 
-        l_node = self.learn_recursive(p_x[l_mask], p_y[l_mask], feature_names, level + 1)
-        be_node = self.learn_recursive(p_x[~l_mask], p_y[~l_mask], feature_names, level + 1)
+        self.feature_importance[curr_feature] += best_var_reduction
+        l_node = self.learn_recursive(p_x[l_mask], p_y[l_mask], level + 1)
+        be_node = self.learn_recursive(p_x[~l_mask], p_y[~l_mask], level + 1)
 
         return {
             "split_feature": curr_feature,
@@ -63,8 +66,8 @@ class DecisionTree:
     def fit(self, p_x, p_y):
         self.train_x = p_x
         self.train_y = p_y
-        feature_names = list(range(p_x.shape[1]))
-        self.tree = self.learn_recursive(p_x, p_y, feature_names)
+        self.feature_names = list(range(p_x.shape[1]))
+        self.tree = self.learn_recursive(p_x, p_y)
 
     def mse(self):
         predicted = self.predict(self.train_x)
