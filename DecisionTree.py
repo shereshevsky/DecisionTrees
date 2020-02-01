@@ -1,5 +1,5 @@
-import json
 import numpy as np
+import json
 from collections import defaultdict
 from split_functions import variance_split
 
@@ -17,7 +17,7 @@ class NpEncoder(json.JSONEncoder):
 
 
 class DecisionTree:
-    def __init__(self, min_leaf, max_depth=3):
+    def __init__(self, min_leaf, max_depth=100):
         self.min_leaf = min_leaf
         self.max_depth = max_depth
         self.feature_importance = defaultdict(int)
@@ -25,6 +25,7 @@ class DecisionTree:
         self.train_x = None
         self.train_y = None
         self.feature_names = None
+        self.selection = None
 
     def __repr__(self):
         return json.dumps(self.tree, cls=NpEncoder)
@@ -36,7 +37,7 @@ class DecisionTree:
                 or np.var(p_y) == 0
                 or level >= self.max_depth
         ):
-            return {"label": np.mean(p_y), "cnt": p_y.size}
+            return {"label": np.round(np.mean(p_y), 5), "cnt": p_y.size}
 
         # generate list of best variance reduction for each feature and find the best feature and position to split by
         (split_value, best_var_reduction), best_feature_index = sorted(
@@ -46,13 +47,13 @@ class DecisionTree:
 
         # no good variance reduction options found -> return average
         if not best_var_reduction:
-            return {"label": np.mean(p_y), "cnt": p_y.size}
+            return {"label": np.round(np.mean(p_y), 5), "cnt": p_y.size}
 
         l_mask = p_x[:, best_feature_index] < split_value
 
         curr_feature = self.feature_names[best_feature_index]
-
         self.feature_importance[curr_feature] += best_var_reduction
+
         l_node = self.learn_recursive(p_x[l_mask], p_y[l_mask], level + 1)
         be_node = self.learn_recursive(p_x[~l_mask], p_y[~l_mask], level + 1)
 
@@ -63,7 +64,8 @@ class DecisionTree:
             ">=": be_node,
         }
 
-    def fit(self, p_x, p_y):
+    def fit(self, p_x, p_y, selection):
+        self.selection = selection
         self.train_x = p_x
         self.train_y = p_y
         self.feature_names = list(range(p_x.shape[1]))

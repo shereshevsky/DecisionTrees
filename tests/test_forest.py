@@ -4,6 +4,8 @@ from TreeEnsemble import TreeEnsemble
 if __name__ == "__main__":
     from sklearn.datasets import load_boston
 
+    np.random.seed(42)
+
     boston = load_boston()
     boston_y = boston.target
     boston_X = boston.data
@@ -33,7 +35,11 @@ if __name__ == "__main__":
     #                                ])))
 
     forest_boston = TreeEnsemble(
-        boston_X, boston_y, n_trees=5, sample_sz=500, min_leaf=5
+        boston_X, boston_y, n_trees=10, sample_sz=500, min_leaf=5
     )
 
     print(forest_boston.predict(boston_X[88:99]))
+
+    print([t.mse() for t in forest_boston.trees])
+
+    print(forest_boston.oob_mse())
